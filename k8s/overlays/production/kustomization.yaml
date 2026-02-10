@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ftc-app
+
+resources:
+  - ../../base
+
+images:
+  - name: os-service
+    newName: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/os-service
+    newTag: v1.0.0
+
+replicas:
+  - name: os-service
+    count: 3
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /data/NODE_ENV
+        value: production
+      - op: replace
+        path: /data/EVENT_BUS_NAME
+        value: fiap-tech-challenge-events-production
+      - op: replace
+        path: /data/SQS_QUEUE_URL
+        value: https://sqs.us-east-1.amazonaws.com/ACCOUNT_ID/os-service-events-production
+    target:
+      kind: ConfigMap
+      name: os-service-config
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 200m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 512Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 1000m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 1Gi
+    target:
+      kind: Deployment
+      name: os-service

@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: os-service
+  labels:
+    app: os-service
+    service: os-service
+    phase: phase-4
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: os-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: os-service
+        service: os-service
+        phase: phase-4
+    spec:
+      serviceAccountName: os-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: os-service
+          image: os-service:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: os-service-config
+                  key: NODE_ENV
+            - name: PORT
+              value: "3000"
+            - name: API_PREFIX
+              value: "/api/v1"
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: os-service-config
+                  key: AWS_REGION
+            - name: EVENT_BUS_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: os-service-config
+                  key: EVENT_BUS_NAME
+            - name: SQS_QUEUE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: os-service-config
+                  key: SQS_QUEUE_URL
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: os-service-secrets
+                  key: DATABASE_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
