@@ -9,7 +9,7 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: os-service
-  EKS_CLUSTER_NAME: fiap-tech-challenge-cluster
+  EKS_CLUSTER_NAME: fiap-tech-challenge-eks-development
   NAMESPACE: ftc-app
 
 jobs:
@@ -86,6 +86,7 @@ jobs:
         with:
           context: .
           push: true
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -115,6 +116,21 @@ jobs:
           aws eks update-kubeconfig \
             --name ${{ env.EKS_CLUSTER_NAME }} \
             --region ${{ env.AWS_REGION }}
+
+      - name: Update AWS Credentials in Kubernetes
+        run: |
+          kubectl create secret generic os-service-aws-creds -n ${{ env.NAMESPACE }} \
+            --from-literal=AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --from-literal=AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            --from-literal=AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }} \
+            --from-literal=AWS_REGION=${{ env.AWS_REGION }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Run Database Migrations
+        run: |
+          kubectl delete job os-service-migration -n ${{ env.NAMESPACE }} --ignore-not-found=true
+          kubectl apply -f k8s/migration-job.yaml
+          kubectl wait --for=condition=complete --timeout=300s job/os-service-migration -n ${{ env.NAMESPACE }}
 
       - name: Deploy to EKS
         run: |
@@ -153,6 +169,21 @@ jobs:
           aws eks update-kubeconfig \
             --name ${{ env.EKS_CLUSTER_NAME }} \
             --region ${{ env.AWS_REGION }}
+
+      - name: Update AWS Credentials in Kubernetes
+        run: |
+          kubectl create secret generic os-service-aws-creds -n ${{ env.NAMESPACE }} \
+            --from-literal=AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+            --from-literal=AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            --from-literal=AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }} \
+            --from-literal=AWS_REGION=${{ env.AWS_REGION }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Run Database Migrations
+        run: |
+          kubectl delete job os-service-migration -n ${{ env.NAMESPACE }} --ignore-not-found=true
+          kubectl apply -f k8s/migration-job.yaml
+          kubectl wait --for=condition=complete --timeout=300s job/os-service-migration -n ${{ env.NAMESPACE }}
 
       - name: Deploy to EKS
         run: |

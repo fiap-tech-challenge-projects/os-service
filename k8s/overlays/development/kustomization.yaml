@@ -8,7 +8,7 @@ resources:
 
 images:
   - name: os-service
-    newName: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/os-service
+    newName: 305032652600.dkr.ecr.us-east-1.amazonaws.com/os-service
     newTag: latest
 
 replicas:
